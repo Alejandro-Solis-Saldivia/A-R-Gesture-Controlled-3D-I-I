@@ -2,8 +2,7 @@
 **A high-performance Computer Vision project blending 3D Physics, Linear Algebra, and Web Technology.**
 
 <div align="center">
-  <video src="assets/A-R-Gesture-Controlled-3D-I-I.mp4" width="100%" autoplay loop muted></video>
-  <p><i>A high-performance Computer Vision project blending 3D Physics, Linear Algebra, and Web Technology.</i></p>
+  <video src="assets/A-R-Gesture-Controlled-3D-I-I.mp4" muted autoplay loop style="max-width: 100%;"></video>
 </div>
 
 ## 🚀 Overview
