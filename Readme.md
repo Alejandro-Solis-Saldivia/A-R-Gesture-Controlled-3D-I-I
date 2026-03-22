@@ -54,13 +54,20 @@ Unlike simple 2D overlays, this project treats the cube as a mathematical entity
 
 ## ⚙️ Installation & Setup
 
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/your-username/A-R-Gesture-Controlled-3D-I-I.git](https://github.com/your-username/A-R-Gesture-Controlled-3D-I-I.git)
-    ```
-2.  **Local Models:** Ensure the `model/` folder contains the necessary `.json` and `.bin` files for HandPose.
-3.  **Run a Local Server:** Due to CORS policy for local files, use a local server:
-      
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/Alejandro-Solis-Saldivia/A-R-Gesture-Controlled-3D-I-I.git](https://github.com/Alejandro-Solis-Saldivia/A-R-Gesture-Controlled-3D-I-I.git)
+   cd A-R-Gesture-Controlled-3D-I-I
+   ```
+
+2. **Local Models:** The `model/` folder already contains the necessary `.json` and `.bin` files. The system is configured to load them locally via a Fetch Interceptor to ensure offline functionality.
+
+3. **Run a Local Server:** Due to CORS policy for loading local JSON models, you must use a local server. In your terminal, run:
+   ```bash
+   python3 -m http.server 8000
+   ```
+   Then, open your browser and navigate to `http://localhost:8000`.
+```
 
 ## 🤝 Credits & Acknowledgments
 
