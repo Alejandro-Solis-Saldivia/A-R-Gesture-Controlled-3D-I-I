@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Augmented Reality: Gesture-Controlled 3D Interactive Interface</title>
+    <script src="p5.js"></script>
+    <script src="ml5.min.js"></script>
+</head>
+<body style="background: #222; color: white; text-align: center;">
+    <h2>Augmented Reality: Gesture-Controlled 3D Interactive Interface</h2>
+    <p>Left Hand: Rotate | Right Hand: Color Pinch</p>
+    <p>Mano Izquierda: Rotar | Mano Derecha: Asignar Color</p>
+    <div id="canvas-container"></div>
+    <script>
+/**
+ * ========================================================================
+ * PROJECT: Augmented Reality: Gesture-Controlled 3D Interactive Interface
+ * VERSION: 1.0 (Stable)
+ * ------------------------------------------------------------------------
+ * CREDITS:
+ * - Lead Engineer & Developer: Alejandro Solis
+ * (Conceptualization, 3D Mathematics, and Hardware/Software Integration)
+ * - AI Logic Collaboration: Gemini 
+ * (Logic refinement, debugging, and software maintenance structure)
+ * - Libraries & Frameworks:
+ * * p5.js (https://p5js.org/): For 3D WEBGL rendering and canvas management.
+ * * ml5.js (https://ml5js.org/): For real-time HandPose estimation.
+ * ------------------------------------------------------------------------
+ * MAINTENANCE NOTE:
+ * This software implements a 3D interface using HandPose tracking. 
+ * Face selection is calculated using a Composite Rotation Matrix and 
+ * Directional Cosines relative to the Z-axis (camera view) to ensure 
+ * mathematical accuracy regardless of the rotation octant.
+ * ========================================================================
+ */
+
+        // Offline Fetch Interceptor: Routes remote model calls to local paths
+        // Essential for development environments without constant internet access
+        const originalFetch = window.fetch;
+        window.fetch = function() {
+            let input = arguments[0];
+            let url = typeof input === 'string' ? input : input.url;
+            if (url.includes('tfhub.dev') || url.includes('storage.googleapis.com')) {
+                let localPath = "";
+                if (url.includes('detector')) {
+                    if (url.includes('model.json')) localPath = 'model/handpose/detector/model.json';
+                    else if (url.includes('.bin')) {
+                        const match = url.match(/group1-shard\d+of\d+\.bin/);
+                        localPath = 'model/handpose/detector/' + (match ? match[0] : 'group1-shard1of1.bin');
+                    }
+                } else if (url.includes('landmark')) {
+                    if (url.includes('model.json')) localPath = 'model/handpose/landmark/model.json';
+                    else if (url.includes('.bin')) {
+                        const match = url.match(/group1-shard\d+of\d+\.bin/);
+                        localPath = 'model/handpose/landmark/' + (match ? match[0] : 'group1-shard1of2.bin');
+                    }
+                }
+                if (localPath) {
+                    if (typeof input === 'object') arguments[0] = new Request(localPath, input);
+                    else arguments[0] = localPath;
+                }
+            }
+            return originalFetch.apply(this, arguments);
+        };
+
+        // --- GLOBAL VARIABLES ---
+        let handPose;
+        let video;
+        let hands = [];
+        let lastClickTime = 0;
+        const clickCooldown = 300; 
+
+        // --- CUBE STATE ENGINE ---
+        let gameCube = {
+            size: 150,
+            rotX: 0, rotY: 0,
+            targetRotX: 0, targetRotY: 0,
+            prevRotX: 0, prevRot: 0,
+            faceNormals: [
+                {x: 0, y: 0, z: 1},  // Front   (ID 0)
+                {x: 0, y: 0, z: -1}, // Back    (ID 1)
+                {x: 1, y: 0, z: 0},  // Right   (ID 2)
+                {x: -1, y: 0, z: 0}, // Left    (ID 3)
+                {x: 0, y: -1, z: 0}, // Top     (ID 4)
+                {x: 0, y: 1, z: 0}   // Bottom  (ID 5)
+            ],
+            faceNormalsName: [
+                "Front",
+                "Back",
+                "Right",
+                "Left",
+                "Top",
+                "Bottom"
+            ],
+            faceColors: [0, 1, 2, 3, 4, 5], 
+            palette: []
+        };
+
+        ml5.setBackend('webgl');
+
+        /***********************************************************
+         * SETUP: Initializes p5, Video Capture, and ml5 HandPose. *
+         ***********************************************************/
+        function setup() {
+            p5.disableFriendlyErrors = true;
+            createCanvas(640, 480, WEBGL).parent('canvas-container');
+
+            video = createCapture(VIDEO);
+            video.size(640, 480);
+            video.hide();
+
+            // Color Palette with RGBA support
+            gameCube.palette = [
+                color(255, 0, 0, 200),      // Red
+                color(0, 255, 0, 200),      // Green
+                color(0, 0, 255, 200),      // Blue
+                color(255, 165, 0, 200),    // Orange
+                color(255, 255, 0, 200),    // Yellow
+                color(32, 32, 32, 200)      // Dark Grey
+                
+            ];
+
+            handPose = ml5.handPose(video, { runtime: 'tfjs', maxHands: 2 }, modelReady);
+        }
+
+        /*******************
+         * Start Detecting *
+         *******************/
+        function modelReady() {
+            handPose.detectStart(video, gotHands);
+        }
+
+        /************************
+         * Set results in hands *
+         ************************/
+        function gotHands(results) {
+            hands = results || [];
+        }
+
+        /***********************************************************************
+         * DRAW: Main render loop. Handles Video background and Gesture Logic. *
+         ***********************************************************************/
+        function draw() {
+            // Adjust WebGL origin to Top-Left for background video alignment
+            translate(-width/2, -height/2);
+            push();
+            image(video, 0, 0, width, height);
+            pop();
+
+            if (hands && hands.length > 0) {
+                // Determine the face pointing towards the user
+                let frontFaceIndex = getFrontFaceIndex();
+
+                for (let hand of hands) {
+                    let label = hand.handedness; 
+
+                    // ROLE: RIGHT HAND -> Action / Color Picking
+                    if (label === "Left") {
+                        // Detect Pinch
+                        let indexTip = hand.keypoints[8];
+                        let isPressed = isPinching(hand);
+
+                        // Visual feedback for interaction
+                        noFill();
+                        stroke(isPressed ? color(255, 0, 0) : color(255, 255, 0));
+                        strokeWeight(3);
+                        ellipse(indexTip.x, indexTip.y, 30, 30);
+
+                        
+                        if (isPressed && millis() - lastClickTime > clickCooldown) {
+                            // Cycle through palette for the current front face
+                            gameCube.faceColors[frontFaceIndex] = (gameCube.faceColors[frontFaceIndex] + 1) % gameCube.palette.length;
+                            lastClickTime = millis();
+                        }
+                        
+                        drawSkeleton(hand, color(255, 100, 0));
+                    } 
+                    // ROLE: LEFT HAND -> Rotation Control
+                    else if (label === "Right") {
+                        
+                        let wrist = hand.keypoints[0];
+                        let middle = hand.keypoints[12];
+                        let dX = middle.x - wrist.x;
+                        let dY = middle.y - wrist.y;
+
+                        // Map 2D hand movement to 3D rotation targets
+                        if (abs(dX) > 20) gameCube.targetRotY = map(dX, -100, 100, -PI/2, PI/2);
+                        if (abs(dY) > 20) gameCube.targetRotX = map(dY, -100, 100, PI/2, -PI/2);
+                        drawSkeleton(hand, color(0, 255, 255));
+                    }
+                }
+            }
+
+            // Smoothing: Linear Interpolation (Lerp) for fluid cube motion
+            gameCube.rotX = lerp(gameCube.rotX, gameCube.targetRotX, 0.15);
+            gameCube.rotY = lerp(gameCube.rotY, gameCube.targetRotY, 0.15);
+
+            translate(width/2, height/2);
+            drawRubikCube();    
+            
+        }
+
+        /****************************************************************************
+         * RENDERING ENGINE: Draws the 3D Cube with lighting and face highlighting. *
+         ****************************************************************************/
+        function drawRubikCube() {
+            push();
+            ambientLight(100);
+            pointLight(255, 255, 255, 0, 0, 300); // Front light
+
+            rotateX(gameCube.rotX);
+            rotateY(gameCube.rotY);
+    
+            let sz = gameCube.size / 2;
+            let activeFace = getFrontFaceIndex();
+
+            idFound = activeFace;
+
+            // Face vertex definitions
+            let faces = [
+                {v: [[-sz,-sz,sz],[sz,-sz,sz],[sz,sz,sz],[-sz,sz,sz]], id: 0},       //Front
+                {v: [[-sz,-sz,-sz],[sz,-sz,-sz],[sz,sz,-sz],[-sz,sz,-sz]], id: 1},   //Back
+                {v: [[sz,-sz,-sz],[sz,-sz,sz],[sz,sz,sz],[sz,sz,-sz]], id: 2},       //Right
+                {v: [[-sz,-sz,-sz],[-sz,-sz,sz],[-sz,sz,sz],[-sz,sz,-sz]], id: 3},   //Left
+                {v: [[-sz,-sz,-sz],[sz,-sz,-sz],[sz,-sz,sz],[-sz,-sz,sz]], id: 4},   //Top
+                {v: [[-sz,sz,-sz],[sz,sz,-sz],[sz,sz,sz],[-sz,sz,sz]], id: 5}        //Bottom
+            ];
+
+
+            faces.forEach(f => {
+                let baseColor = gameCube.palette[gameCube.faceColors[f.id]];
+        
+                if (f.id === activeFace) {
+                    // Selected Face: Thick white border and glow effect
+                    stroke(255); 
+                    strokeWeight(5);
+                    let highlight = lerpColor(baseColor, color(255), 0.4);
+                    fill(highlight); 
+                } else {
+                    // Passive Faces: Standard thin border 
+                    stroke(0, 100);
+                    strokeWeight(2);
+                    fill(baseColor);
+                }
+
+                beginShape();
+                f.v.forEach(v => vertex(v[0], v[1], v[2]));
+                endShape(CLOSE);
+            });
+            pop();
+        }
+
+        /*************************************************************
+         * HAND SKELETON: Visualizes hand keypoints and connections. *
+         *************************************************************/
+        function drawSkeleton(hand, clr) {
+            stroke(clr);
+            strokeWeight(2);
+            let wrist = hand.keypoints[0];
+            let fingers = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+            fingers.forEach(f => {
+                line(wrist.x, wrist.y, hand.keypoints[f[0]].x, hand.keypoints[f[0]].y);
+                for(let i=0; i<f.length-1; i++) {
+                    line(hand.keypoints[f[i]].x, hand.keypoints[f[i]].y, hand.keypoints[f[i+1]].x, hand.keypoints[f[i+1]].y);
+                }
+            });
+            fill(0, 255, 0);
+            noStroke();
+            hand.keypoints.forEach(kp => ellipse(kp.x, kp.y, 5, 5));
+        }
+
+        /*********************************************************
+         * GESTURE: Pinch Detection based on Euclidean distance. *
+         *********************************************************/
+        function isPinching(hand) {
+            return dist(hand.keypoints[4].x, hand.keypoints[4].y, hand.keypoints[8].x, hand.keypoints[8].y) < 20;
+        }
+
+        /**********************************************************
+         * MATH: Finding index of the face in front of the user.  *
+         * Implements a composite rotation matrix for efficiency. *
+         **********************************************************/
+        function getFrontFaceIndex() {
+
+            let ax = gameCube.rotX;
+            let ay = gameCube.rotY;
+
+            let cos_rx=Math.cos(ax);
+            let sin_rx=Math.sin(ax);
+
+            let cos_ry=Math.cos(ay);
+            let sin_ry=Math.sin(ay);
+            
+            let maxCosDirect = -Infinity;
+            let frontIndex = 0;
+
+
+            gameCube.faceNormals.forEach((n, i) => {
+                // Combined X and Y axes transformation matrix
+                let xr = (n.x * cos_ry) + (n.z * sin_ry);
+                let yr = (n.x * sin_rx * sin_ry) + (n.y * cos_rx) - (n.z * sin_rx * cos_ry);
+                let zr = ((-1) * n.x * cos_rx * sin_ry) + (n.y * sin_rx)  + (n.z * cos_rx * cos_ry);
+
+                let cosDirect=getCosDirector({x: xr, y: yr, z: zr});
+
+                if (cosDirect > maxCosDirect) {
+                    maxCosDirect = cosDirect;
+                    frontIndex = i;
+                }
+            });
+
+            return frontIndex;
+        }
+
+        /***********************************************************************
+         * MATH: Calculation of Directional Cosine relative to Z-Axis (0,0,1). *
+         * Used to identify the front-facing vector.                           *
+         ***********************************************************************/
+        function getCosDirector(vector){
+            return (vector.z/Math.sqrt((vector.x*vector.x)+(vector.y*vector.y)+(vector.z*vector.z)));
+        }
+
+    </script>
+</body>
+</html>
