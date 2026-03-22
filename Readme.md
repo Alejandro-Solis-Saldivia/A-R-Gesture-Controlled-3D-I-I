@@ -1,7 +1,11 @@
 # Augmented Reality: Gesture-Controlled 3D Interactive Interface
 **A high-performance Computer Vision project blending 3D Physics, Linear Algebra, and Web Technology.**
 
-https://github.com/Alejandro-Solis-Saldivia/A-R-Gesture-Controlled-3D-I-I/raw/refs/heads/main/assets/A-R-Gesture-Controlled-3D-I-I.mp4
+
+
+https://github.com/user-attachments/assets/1b84bf4b-01f8-4318-b8cb-81c74cf54e53
+
+
 
 ## 🚀 Overview
 This project is an Augmented Reality application that allows users to interact with a 3D cube using real-time hand tracking. Developed with a focus on mathematical precision, it utilizes composite rotation matrices and directional cosines to achieve seamless interaction without the need for external controllers.
