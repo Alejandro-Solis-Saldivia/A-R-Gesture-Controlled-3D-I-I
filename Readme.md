@@ -5,7 +5,7 @@
 
 https://github.com/user-attachments/assets/1b84bf4b-01f8-4318-b8cb-81c74cf54e53
 
-
+[🚀 View Live Demo](https://alejandro-solis.epizy.com/Developed_Projects/A-R-Gesture-Controlled-3D-I-I/)
 
 ## 🚀 Overview
 This project is an Augmented Reality application that allows users to interact with a 3D cube using real-time hand tracking. Developed with a focus on mathematical precision, it utilizes composite rotation matrices and directional cosines to achieve seamless interaction without the need for external controllers.
