@@ -69,4 +69,4 @@ Unlike simple 2D overlays, this project treats the cube as a mathematical entity
 
 -----
 
-Developed by **Alejandro Solis** | [LinkedIn](https://www.linkedin.com/in/alejandrosolis2020) | [GitHub](https://www.google.com/search?q=https://github.com/Alejandro-Solis-Saldivia)
+Developed by **Alejandro Solis** | [LinkedIn](https://www.linkedin.com/in/alejandrosolis2020) | [GitHub](https://github.com/Alejandro-Solis-Saldivia)
