@@ -67,7 +67,6 @@ Unlike simple 2D overlays, this project treats the cube as a mathematical entity
    python3 -m http.server 8000
    ```
    Then, open your browser and navigate to `http://localhost:8000`.
-```
 
 ## 🤝 Credits & Acknowledgments
 
@@ -75,6 +74,5 @@ Unlike simple 2D overlays, this project treats the cube as a mathematical entity
   - **AI Logic Support:** Gemini (Google DeepMind)
   - **Inspiration:** Developed as a practical application of Instrumentation and Computer Vision.
 
------
 
 Developed by **Alejandro Solis** | [LinkedIn](https://www.linkedin.com/in/alejandrosolis2020) | [GitHub](https://github.com/Alejandro-Solis-Saldivia)
